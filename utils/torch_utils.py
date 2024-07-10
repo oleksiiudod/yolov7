@@ -189,7 +189,7 @@ def fuse_conv_and_bn(conv, bn):
                           bias=True).requires_grad_(False).to(conv.weight.device)
 
     # prepare filters
-    w_conv = conv.weight.clone().view(conv.out_channels, -1)
+    w_conv = conv.weight.clone().contiguous().view(conv.out_channels, -1)
     w_bn = torch.diag(bn.weight.div(torch.sqrt(bn.eps + bn.running_var)))
     fusedconv.weight.copy_(torch.mm(w_bn, w_conv).view(fusedconv.weight.shape))
 
@@ -293,6 +293,9 @@ class ModelEMA:
             d = self.decay(self.updates)
 
             msd = model.module.state_dict() if is_parallel(model) else model.state_dict()  # model state_dict
+            if '_orig_mod.model.0.conv.weight' in msd or '_orig_mod.model.1.conv.weight' in msd:
+                msd = model._orig_mod.state_dict()
+            # print(msd.keys())
             for k, v in self.ema.state_dict().items():
                 if v.dtype.is_floating_point:
                     v *= d
